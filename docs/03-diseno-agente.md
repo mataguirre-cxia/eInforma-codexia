@@ -55,8 +55,10 @@ Si acepta: confírmale que le mandas/lee el enlace {{oferta_url}} para acceder a
 Llama a `registrar_resultado(resultado="conversion")`. Despídete cordialmente.
 
 ## Salida 2 — Acepta email
-Si no quiere ahora pero acepta el enlace por email: confirma su email {{email}},
-llama a `enviar_email` y a `registrar_resultado(resultado="email")`. Despídete.
+Si no quiere ahora pero acepta el enlace por email: NO le pidas que deletree su correo.
+Confírmale el que YA tenemos: "Te lo envío al correo que tenemos registrado, {{email}}, ¿correcto?".
+Si lo confirma, llama a `enviar_email` y a `registrar_resultado(resultado="email")` y despídete.
+Solo si dice que ese correo no es válido, pídele el correcto.
 
 ## Salida 3 — Transferencia a humano
 Si quiere hablar con una persona: dile que lo pasas con el equipo, llama a
