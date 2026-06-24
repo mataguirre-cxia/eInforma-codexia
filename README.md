@@ -30,12 +30,34 @@ le ofrece un **upgrade con URL personalizada**, y gestiona **4 salidas**:
 **Clave:** el "envoltorio" (orquestación + dashboard + email) es el **mismo stack que Growlix** (Next.js + Supabase),
 así que Codexia ya lo domina. Solo se añade la capa de voz (ElevenLabs) + telefonía (Twilio).
 
-## Estructura
+## Estructura del código
 ```
-docs/
-  01-stack-y-hallazgos.md       # Stack + investigación verificada (con fuentes)
-  02-respuestas-tecnicas.md     # Las 12 preguntas del briefing, respondidas + precio
+app/
+  page.tsx                       # Dashboard (datos Supabase, fallback demo) + Realtime
+  cargar/page.tsx                # Subida de CSV → crea campaña + lanza batch calling
+  _components/LiveRefresher.tsx  # Suscripción Realtime → refresca el dashboard
+  api/
+    campaigns/route.ts           # GET lista · POST crea campaña + dispara batch
+    tools/registrar-resultado/   # Tool del agente: registra desenlace de la llamada
+    tools/enviar-email/          # Tool del agente: Salida 2 (envía enlace por email)
+    webhooks/elevenlabs/         # Webhook post-llamada → actualiza Supabase
+    seed/route.ts                # POST → datos demo para el dashboard
+lib/
+  supabase.ts  elevenlabs.ts  email.ts  queries.ts  demo-data.ts  types.ts
+supabase/schema.sql              # campaigns + contacts + calls + vista de métricas
+docs/                            # 01 stack · 02 respuestas técnicas · 03 diseño agente
 ```
+
+## Cómo correr
+1. Copia `.env.example` → `.env.local` y rellena (Supabase obligatorio; ElevenLabs/Twilio/Resend opcionales).
+2. Aplica `supabase/schema.sql` en tu proyecto Supabase.
+3. `npm run dev`. Sin Supabase, el dashboard muestra **datos demo**.
+4. (Opcional) `POST /api/seed` para poblar datos demo reales en Supabase.
+
+## Endpoints para configurar las Tools del agente en ElevenLabs
+- `registrar_resultado` → `POST {APP_URL}/api/tools/registrar-resultado`  body `{ contact_id, resultado }`
+- `enviar_email` → `POST {APP_URL}/api/tools/enviar-email`  body `{ contact_id }`
+- `transfer_to_number` → tool de sistema de ElevenLabs (al 900 de eInforma)
 
 ## Estado
 - ✅ Investigación de tecnologías (Fase A) — verificada con fuentes oficiales.

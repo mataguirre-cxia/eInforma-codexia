@@ -39,3 +39,29 @@ export async function submitBatchCall(opts: {
   }
   return res.json() as Promise<{ id: string }>;
 }
+
+/** Lanza UNA llamada outbound (útil para pruebas) vía Twilio conectado en ElevenLabs. */
+export async function placeOutboundCall(opts: {
+  toNumber: string;
+  dynamicVariables: Record<string, string | number>;
+}): Promise<unknown> {
+  const res = await fetch(`${BASE}/convai/twilio/outbound-call`, {
+    method: 'POST',
+    headers: {
+      'xi-api-key': process.env.ELEVENLABS_API_KEY!,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      agent_id: process.env.ELEVENLABS_AGENT_ID,
+      agent_phone_number_id: process.env.ELEVENLABS_PHONE_NUMBER_ID,
+      to_number: opts.toNumber,
+      conversation_initiation_client_data: {
+        dynamic_variables: opts.dynamicVariables,
+      },
+    }),
+  });
+  if (!res.ok) {
+    throw new Error(`ElevenLabs outbound error ${res.status}: ${await res.text()}`);
+  }
+  return res.json();
+}
