@@ -27,9 +27,9 @@ export default function ProbarAgente() {
         body: JSON.stringify(form),
       });
       const data = await res.json();
-      setResult(res.ok ? { ok: true } : { error: data.error || 'Error' });
+      setResult(res.ok ? { ok: true } : { error: data.error || 'No se pudo lanzar la llamada' });
     } catch (e) {
-      setResult({ error: e instanceof Error ? e.message : 'Error' });
+      setResult({ error: e instanceof Error ? e.message : 'No se pudo lanzar la llamada' });
     } finally {
       setLoading(false);
     }
@@ -37,24 +37,22 @@ export default function ProbarAgente() {
 
   const field = (label: string, k: keyof typeof form, placeholder?: string) => (
     <div>
-      <label className="block text-sm text-zinc-400 mb-1">{label}</label>
-      <input
-        value={form[k]}
-        onChange={upd(k)}
-        placeholder={placeholder}
-        className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-white outline-none focus:border-emerald-400"
-      />
+      <label htmlFor={k} className="mb-1.5 block text-sm font-medium text-fg">{label}</label>
+      <input id={k} value={form[k]} onChange={upd(k)} placeholder={placeholder} className="field" />
     </div>
   );
 
   return (
-    <main className="mx-auto max-w-xl px-6 py-10">
-      <h1 className="text-2xl font-bold text-white">Probar el agente</h1>
-      <p className="mt-1 text-sm text-zinc-500">
-        Introduce un número y el agente te llamará con esos datos. Ideal para la demo en vivo.
-      </p>
+    <div className="mx-auto max-w-xl animate-fade-up px-6 py-10">
+      <header className="mb-6">
+        <p className="eyebrow">Demo en vivo</p>
+        <h1 className="mt-1 text-3xl font-semibold text-fg">Probar el agente</h1>
+        <p className="mt-1.5 text-sm text-muted">
+          Introduce un número y el agente te llamará con estos datos.
+        </p>
+      </header>
 
-      <div className="mt-6 space-y-4">
+      <div className="card space-y-4 p-6">
         {field('Número de teléfono (con prefijo, ej. +34…)', 'toNumber', '+34600000000')}
         <div className="grid grid-cols-2 gap-3">
           {field('Nombre', 'nombre')}
@@ -65,23 +63,21 @@ export default function ProbarAgente() {
           {field('URL oferta', 'oferta_url')}
         </div>
 
-        <button
-          onClick={llamar}
-          disabled={loading || !form.toNumber.trim()}
-          className="rounded-xl bg-emerald-500 px-5 py-2.5 font-medium text-white hover:bg-emerald-600 disabled:opacity-50"
-        >
-          {loading ? 'Llamando…' : '📞 Llamar ahora'}
+        <button onClick={llamar} disabled={loading || !form.toNumber.trim()} className="btn btn-primary">
+          {loading ? 'Llamando…' : 'Llamar ahora'}
         </button>
 
         {result?.ok && (
-          <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm text-emerald-200">
-            ✅ Llamada lanzada. En unos segundos sonará el teléfono de <b>{form.toNumber}</b>.
+          <div className="rounded-lg border border-ok/20 bg-ok-wash px-4 py-3 text-sm text-ok">
+            Llamada lanzada. En unos segundos sonará el teléfono de <b className="font-medium">{form.toNumber}</b>.
           </div>
         )}
         {result?.error && (
-          <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200">❌ {result.error}</div>
+          <div className="rounded-lg border border-[#d4351c]/20 bg-[#fdecea] px-4 py-3 text-sm text-[#b3261e]">
+            {result.error}
+          </div>
         )}
       </div>
-    </main>
+    </div>
   );
 }

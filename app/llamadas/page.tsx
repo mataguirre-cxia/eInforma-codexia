@@ -3,13 +3,22 @@ import { RESULTADO_LABEL, type Resultado } from '@/lib/types';
 
 export const dynamic = 'force-dynamic';
 
-const RESULTADO_STYLE: Record<Resultado, string> = {
-  conversion: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
-  email: 'bg-sky-500/15 text-sky-300 border-sky-500/30',
-  transferido: 'bg-amber-500/15 text-amber-300 border-amber-500/30',
-  no_interesado: 'bg-zinc-500/15 text-zinc-300 border-zinc-500/30',
-  sin_contacto: 'bg-zinc-700/20 text-zinc-400 border-zinc-600/30',
+const PILL: Record<Resultado, string> = {
+  conversion: 'text-ok bg-ok-wash',
+  email: 'text-info bg-info-wash',
+  transferido: 'text-warn bg-warn-wash',
+  no_interesado: 'text-neutral bg-neutral-wash',
+  sin_contacto: 'text-neutral bg-neutral-wash',
 };
+
+function Pill({ r }: { r: Resultado }) {
+  return (
+    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${PILL[r]}`}>
+      <span className="h-1.5 w-1.5 rounded-full bg-current" aria-hidden />
+      {RESULTADO_LABEL[r]}
+    </span>
+  );
+}
 
 function mmss(s: number | null): string {
   if (!s) return '0:00';
@@ -20,62 +29,59 @@ export default async function Llamadas() {
   const { calls, isDemo } = await getCallsDetailed();
 
   return (
-    <main className="mx-auto max-w-4xl px-6 py-10">
-      <header className="mb-6 flex items-center justify-between">
+    <div className="mx-auto max-w-3xl animate-fade-up px-6 py-10">
+      <header className="mb-6 flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white">Llamadas</h1>
-          <p className="mt-1 text-sm text-zinc-500">Grabación y transcripción de cada conversación</p>
+          <p className="eyebrow">Conversaciones</p>
+          <h1 className="mt-1 text-3xl font-semibold text-fg">Llamadas</h1>
+          <p className="mt-1.5 text-sm text-muted">Grabación y transcripción de cada conversación</p>
         </div>
         {isDemo && (
-          <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-xs text-amber-300">
+          <span className="mt-1 shrink-0 rounded-full bg-neutral-wash px-3 py-1 text-xs font-medium text-neutral">
             Datos de ejemplo
           </span>
         )}
       </header>
 
-      <div className="space-y-3">
-        {calls.map((c) => (
-          <div key={c.id} className="rounded-2xl border border-white/10 bg-white/[0.02] p-4">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <span className="font-medium text-white">{c.nombre}</span>
-                <span className="ml-2 text-sm text-zinc-400">{c.ultimo_informe || '—'}</span>
+      {calls.length === 0 ? (
+        <div className="card px-6 py-12 text-center text-sm text-muted">
+          Aún no hay llamadas registradas.
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {calls.map((c) => (
+            <article key={c.id} className="card p-5">
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <span className="font-medium text-fg">{c.nombre}</span>
+                  <span className="ml-2 text-sm text-muted">{c.ultimo_informe || '—'}</span>
+                </div>
+                <div className="flex shrink-0 items-center gap-3">
+                  <span className="font-mono text-sm tabular-nums text-muted">{mmss(c.duration_seconds)}</span>
+                  {c.resultado && <Pill r={c.resultado} />}
+                </div>
               </div>
-              <div className="flex items-center gap-3">
-                <span className="text-sm text-zinc-400">{mmss(c.duration_seconds)}</span>
-                {c.resultado && (
-                  <span className={`rounded-full border px-2.5 py-1 text-xs ${RESULTADO_STYLE[c.resultado]}`}>
-                    {RESULTADO_LABEL[c.resultado]}
-                  </span>
-                )}
-              </div>
-            </div>
 
-            {c.recording_url && (
-              <audio controls src={c.recording_url} className="mt-3 w-full">
-                Tu navegador no soporta audio.
-              </audio>
-            )}
+              {c.recording_url && (
+                <audio controls src={c.recording_url} className="mt-4 w-full">
+                  Tu navegador no soporta audio.
+                </audio>
+              )}
 
-            {c.transcript && (
-              <details className="mt-3 group">
-                <summary className="cursor-pointer text-sm text-emerald-400 hover:text-emerald-300">
-                  Ver transcripción
-                </summary>
-                <pre className="mt-2 whitespace-pre-wrap rounded-xl border border-white/10 bg-black/30 p-3 text-sm text-zinc-300">
+              {c.transcript && (
+                <details className="group mt-4">
+                  <summary className="cursor-pointer select-none text-sm font-medium text-cta hover:text-cta-hover">
+                    Ver transcripción
+                  </summary>
+                  <pre className="mt-3 whitespace-pre-wrap rounded-lg border border-border bg-surface p-4 font-sans text-sm leading-relaxed text-fg">
 {c.transcript}
-                </pre>
-              </details>
-            )}
-          </div>
-        ))}
-
-        {calls.length === 0 && (
-          <p className="rounded-2xl border border-white/10 p-6 text-center text-zinc-500">
-            Aún no hay llamadas.
-          </p>
-        )}
-      </div>
-    </main>
+                  </pre>
+                </details>
+              )}
+            </article>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }

@@ -1,12 +1,130 @@
 @import "tailwindcss";
 
-:root {
-  --background: #0b1020;
-  --foreground: #e6e9f0;
+/* ── Design system Codexia (tokens) ──────────────────────────────
+   Tema claro premium. Referencias: Linear, Vercel, Stripe.
+   Fuente de verdad: DESIGN.md + /codexia-design-directive. */
+@theme {
+  --color-bg: #ffffff;
+  --color-surface: #f6f7f8;
+  --color-elevated: #ffffff;
+  --color-fg: #111111;          /* nunca #000 */
+  --color-muted: #6b7280;       /* texto secundario (AA sobre blanco) */
+  --color-faint: #9aa1ab;       /* terciario */
+  --color-border: #e9eaed;      /* hairline sólido */
+
+  --color-cta: #0658f6;         /* azul Codexia */
+  --color-cta-hover: #0a4ed0;
+  --color-wash: #ebf0ff;        /* fondo suave del azul */
+
+  /* Semánticos (separados del acento) */
+  --color-ok: #0a7d3c;
+  --color-ok-wash: #e7f6ee;
+  --color-info: #0658f6;
+  --color-info-wash: #ebf0ff;
+  --color-warn: #a85800;
+  --color-warn-wash: #f8efe1;
+  --color-neutral: #6b7280;
+  --color-neutral-wash: #f1f2f4;
+
+  --font-sans: var(--font-geist-sans), system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: var(--font-jetbrains-mono), "JetBrains Mono", ui-monospace, monospace;
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+@layer base {
+  body {
+    background: var(--color-bg);
+    color: var(--color-fg);
+    font-family: var(--font-sans);
+    font-size: 16px;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  h1 { letter-spacing: -0.032em; line-height: 1.08; }
+  h2 { letter-spacing: -0.022em; line-height: 1.18; }
+  ::selection { background: var(--color-wash); }
+
+  /* Foco visible y consistente (a11y) */
+  :focus-visible {
+    outline: 2px solid var(--color-cta);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
 }
+
+@layer components {
+  /* Etiquetas mono (eyebrows, labels de estado, columnas) */
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--color-muted);
+  }
+
+  /* Tarjeta / panel */
+  .card {
+    background: var(--color-elevated);
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    box-shadow: 0 1px 2px rgba(17, 24, 39, 0.03);
+  }
+
+  /* Campo de formulario */
+  .field {
+    width: 100%;
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.9375rem;
+    color: var(--color-fg);
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+  .field::placeholder { color: var(--color-faint); }
+  .field:focus {
+    outline: none;
+    border-color: var(--color-cta);
+    box-shadow: 0 0 0 3px rgba(6, 88, 246, 0.12);
+  }
+
+  /* Botón primario */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    height: 40px;
+    padding: 0 1.1rem;
+    border-radius: 8px;
+    font-size: 0.9375rem;
+    font-weight: 500;
+    transition: background 0.15s ease, opacity 0.15s ease;
+  }
+  .btn-primary { background: var(--color-cta); color: #fff; }
+  .btn-primary:hover { background: var(--color-cta-hover); }
+  .btn-primary:disabled { opacity: 0.45; cursor: not-allowed; }
+}
+
+/* Micro-interacciones (sutiles) */
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-up { animation: fade-up 0.3s ease-out both; }
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.35; }
+}
+.animate-pulse-dot { animation: pulse-dot 1.4s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-up, .animate-pulse-dot { animation: none; }
+}
+
+/* Scrollbar minimal */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #d8dade; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #c2c5cb; }

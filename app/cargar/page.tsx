@@ -21,7 +21,7 @@ export default function CargarContactos() {
       header: true,
       skipEmptyLines: true,
       complete: (res) => setRows(res.data),
-      error: (err) => setResult({ error: `Error leyendo CSV: ${err.message}` }),
+      error: (err) => setResult({ error: `No se pudo leer el CSV: ${err.message}` }),
     });
   }
 
@@ -36,9 +36,9 @@ export default function CargarContactos() {
         body: JSON.stringify({ name, contacts: rows }),
       });
       const data = await res.json();
-      setResult(res.ok ? { ok: true, ...data } : { error: data.error || 'Error' });
+      setResult(res.ok ? { ok: true, ...data } : { error: data.error || 'No se pudo crear la campaña' });
     } catch (e) {
-      setResult({ error: e instanceof Error ? e.message : 'Error' });
+      setResult({ error: e instanceof Error ? e.message : 'No se pudo crear la campaña' });
     } finally {
       setLoading(false);
     }
@@ -47,69 +47,75 @@ export default function CargarContactos() {
   const headers = rows.length > 0 ? Object.keys(rows[0]) : [];
 
   return (
-    <main className="mx-auto max-w-4xl px-6 py-10">
-      <h1 className="text-2xl font-bold text-white">Cargar contactos</h1>
-      <p className="mt-1 text-sm text-zinc-500">
-        Sube el CSV de eInforma (nombre, teléfono, email, CIF, último informe…). Se crea la campaña y se lanzan las llamadas.
-      </p>
+    <div className="mx-auto max-w-3xl animate-fade-up px-6 py-10">
+      <header className="mb-6">
+        <p className="eyebrow">Campaña nueva</p>
+        <h1 className="mt-1 text-3xl font-semibold text-fg">Cargar contactos</h1>
+        <p className="mt-1.5 text-sm text-muted">
+          Sube el CSV de eInforma (nombre, teléfono, email, CIF, último informe). Se crea la campaña y se lanzan las llamadas.
+        </p>
+      </header>
 
-      <div className="mt-6 space-y-4">
+      <div className="card space-y-5 p-6">
         <div>
-          <label className="block text-sm text-zinc-400 mb-1">Nombre de la campaña</label>
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-white outline-none focus:border-emerald-400"
-          />
+          <label htmlFor="campaign-name" className="mb-1.5 block text-sm font-medium text-fg">Nombre de la campaña</label>
+          <input id="campaign-name" value={name} onChange={(e) => setName(e.target.value)} className="field" />
         </div>
 
         <div>
-          <label className="block text-sm text-zinc-400 mb-1">Fichero CSV</label>
-          <input
-            type="file"
-            accept=".csv,text/csv"
-            onChange={onFile}
-            className="block w-full text-sm text-zinc-300 file:mr-4 file:rounded-lg file:border-0 file:bg-emerald-500 file:px-4 file:py-2 file:text-white hover:file:bg-emerald-600"
-          />
-          {fileName && <p className="mt-1 text-xs text-zinc-500">{fileName} · {rows.length} filas</p>}
+          <span className="mb-1.5 block text-sm font-medium text-fg">Fichero CSV</span>
+          <label
+            htmlFor="csv-file"
+            className="inline-flex cursor-pointer items-center rounded-md border border-border bg-surface px-4 py-2 text-sm font-medium text-fg transition-colors hover:bg-bg"
+          >
+            Seleccionar CSV
+          </label>
+          <input id="csv-file" type="file" accept=".csv,text/csv" onChange={onFile} className="sr-only" />
+          <span className="ml-3 text-sm text-faint">
+            {fileName ? (
+              <span className="font-mono text-xs tabular-nums text-muted">{fileName} · {rows.length} filas</span>
+            ) : (
+              'Ningún archivo seleccionado'
+            )}
+          </span>
         </div>
 
         {rows.length > 0 && (
-          <div className="overflow-x-auto rounded-2xl border border-white/10">
+          <div className="overflow-x-auto rounded-lg border border-border">
             <table className="w-full text-left text-xs">
-              <thead className="bg-white/[0.03] text-zinc-400">
-                <tr>{headers.map((h) => <th key={h} className="px-3 py-2 font-medium">{h}</th>)}</tr>
+              <thead>
+                <tr className="border-b border-border">
+                  {headers.map((h) => <th key={h} className="eyebrow px-3 py-2 font-normal">{h}</th>)}
+                </tr>
               </thead>
               <tbody>
                 {rows.slice(0, 5).map((r, i) => (
-                  <tr key={i} className="border-t border-white/5">
-                    {headers.map((h) => <td key={h} className="px-3 py-2 text-zinc-300">{String(r[h] ?? '')}</td>)}
+                  <tr key={i} className="border-b border-border last:border-0">
+                    {headers.map((h) => <td key={h} className="px-3 py-2 text-muted">{String(r[h] ?? '')}</td>)}
                   </tr>
                 ))}
               </tbody>
             </table>
-            {rows.length > 5 && <p className="px-3 py-2 text-xs text-zinc-500">… y {rows.length - 5} más</p>}
+            {rows.length > 5 && <p className="px-3 py-2 text-xs text-faint">y {rows.length - 5} filas más</p>}
           </div>
         )}
 
-        <button
-          onClick={lanzar}
-          disabled={loading || rows.length === 0}
-          className="rounded-xl bg-emerald-500 px-5 py-2.5 font-medium text-white hover:bg-emerald-600 disabled:opacity-50"
-        >
-          {loading ? 'Lanzando…' : `Lanzar campaña (${rows.length} contactos)`}
+        <button onClick={lanzar} disabled={loading || rows.length === 0} className="btn btn-primary">
+          {loading ? 'Lanzando…' : rows.length > 0 ? `Lanzar campaña · ${rows.length} contactos` : 'Lanzar campaña'}
         </button>
 
         {result?.ok && (
-          <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm text-emerald-200">
-            ✅ Campaña creada ({result.contacts} contactos). {result.batchId ? `Batch: ${result.batchId}` : ''}
-            {result.note && <div className="mt-1 text-emerald-300/70">{result.note}</div>}
+          <div className="rounded-lg border border-ok/20 bg-ok-wash px-4 py-3 text-sm text-ok">
+            Campaña creada · {result.contacts} contactos.{result.batchId ? ` Batch ${result.batchId}.` : ''}
+            {result.note && <div className="mt-1 opacity-80">{result.note}</div>}
           </div>
         )}
         {result?.error && (
-          <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200">❌ {result.error}</div>
+          <div className="rounded-lg border border-[#d4351c]/20 bg-[#fdecea] px-4 py-3 text-sm text-[#b3261e]">
+            {result.error}
+          </div>
         )}
       </div>
-    </main>
+    </div>
   );
 }
