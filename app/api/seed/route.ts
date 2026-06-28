@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
+import { getSessionUser } from '@/lib/auth-guard';
 import type { Resultado } from '@/lib/types';
 
-// POST /api/seed → crea una campaña demo con contactos y llamadas (datos realistas)
-// para que el dashboard muestre datos reales sin necesidad de hacer llamadas.
+// POST /api/seed → crea una campaña demo con datos realistas (solo operador autenticado).
 const DEMO = [
   { nombre: 'Sebastián G.', informe: 'Telefónica', resultado: 'conversion', dur: 161 },
   { nombre: 'María L.', informe: 'Orange', resultado: 'email', dur: 118 },
@@ -18,6 +18,7 @@ const DEMO = [
 ];
 
 export async function POST() {
+  if (!(await getSessionUser())) return NextResponse.json({ error: 'unauthenticated' }, { status: 401 });
   try {
     const sb = supabaseAdmin();
 
@@ -26,7 +27,7 @@ export async function POST() {
       .insert({ name: 'POC eInforma — Demo', status: 'completed', total_contacts: DEMO.length })
       .select('id')
       .single();
-    if (cErr || !campaign) throw new Error(cErr?.message || 'No se pudo crear campaña');
+    if (cErr || !campaign) throw new Error(cErr?.message || 'campaign insert failed');
 
     for (const d of DEMO) {
       const { data: contact } = await sb
@@ -58,6 +59,7 @@ export async function POST() {
 
     return NextResponse.json({ ok: true, campaignId: campaign.id, contactos: DEMO.length });
   } catch (e) {
-    return NextResponse.json({ error: e instanceof Error ? e.message : 'Error' }, { status: 500 });
+    console.error('[api/seed]', e instanceof Error ? e.message : e);
+    return NextResponse.json({ error: 'internal_error' }, { status: 500 });
   }
 }

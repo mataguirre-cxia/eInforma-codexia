@@ -1,34 +1,52 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { placeOutboundCall } from '@/lib/elevenlabs';
+import { getSessionUser } from '@/lib/auth-guard';
+import { rateLimit, clientIp } from '@/lib/rate-limit';
 
-// POST /api/test-call → lanza UNA llamada de prueba del agente al número indicado.
-// Body: { toNumber, nombre?, ultimo_informe?, precio_oferta?, oferta_url?, email? }
+// POST /api/test-call → lanza UNA llamada de prueba del agente (solo operador).
+const Body = z
+  .object({
+    toNumber: z.string().trim().regex(/^\+?[0-9\s().-]{6,20}$/),
+    nombre: z.string().max(120).optional(),
+    ultimo_informe: z.string().max(120).optional(),
+    precio_oferta: z.string().max(40).optional(),
+    oferta_url: z.string().max(300).optional(),
+    email: z.string().max(254).optional(),
+  })
+  .strict();
+
 export async function POST(req: NextRequest) {
+  if (!(await getSessionUser())) return NextResponse.json({ error: 'unauthenticated' }, { status: 401 });
+
+  // Las llamadas salientes cuestan dinero → límite estricto por IP.
+  if (!rateLimit(`test-call:${clientIp(req)}`, 5, 5 * 60 * 1000)) {
+    return NextResponse.json({ error: 'too_many_requests' }, { status: 429 });
+  }
+
+  if (!process.env.ELEVENLABS_API_KEY || !process.env.ELEVENLABS_AGENT_ID || !process.env.ELEVENLABS_PHONE_NUMBER_ID) {
+    return NextResponse.json({ error: 'ElevenLabs no configurado' }, { status: 400 });
+  }
+
   try {
-    if (!process.env.ELEVENLABS_API_KEY || !process.env.ELEVENLABS_AGENT_ID || !process.env.ELEVENLABS_PHONE_NUMBER_ID) {
-      return NextResponse.json(
-        { error: 'ElevenLabs no configurado (faltan ELEVENLABS_API_KEY / AGENT_ID / PHONE_NUMBER_ID)' },
-        { status: 400 },
-      );
-    }
+    const parsed = Body.safeParse(await req.json().catch(() => null));
+    if (!parsed.success) return NextResponse.json({ error: 'invalid_input' }, { status: 400 });
+    const d = parsed.data;
 
-    const body = await req.json().catch(() => ({}));
-    const toNumber: string = String(body?.toNumber || '').trim();
-    if (!toNumber) return NextResponse.json({ error: 'Falta el número de teléfono' }, { status: 400 });
-
-    const result = await placeOutboundCall({
-      toNumber,
+    await placeOutboundCall({
+      toNumber: d.toNumber,
       dynamicVariables: {
-        nombre: body?.nombre || 'Sebastián',
-        ultimo_informe: body?.ultimo_informe || 'Telefónica',
-        precio_oferta: body?.precio_oferta || '19 €',
-        oferta_url: body?.oferta_url || 'informa.es/oferta',
-        email: body?.email || '',
+        nombre: d.nombre || 'Sebastián',
+        ultimo_informe: d.ultimo_informe || 'Telefónica',
+        precio_oferta: d.precio_oferta || '19 €',
+        oferta_url: d.oferta_url || 'informa.es/oferta',
+        email: d.email || '',
       },
     });
 
-    return NextResponse.json({ ok: true, result });
+    return NextResponse.json({ ok: true });
   } catch (e) {
-    return NextResponse.json({ error: e instanceof Error ? e.message : 'Error' }, { status: 500 });
+    console.error('[api/test-call] POST', e instanceof Error ? e.message : e);
+    return NextResponse.json({ error: 'internal_error' }, { status: 500 });
   }
 }

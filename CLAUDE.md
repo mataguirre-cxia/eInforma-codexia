@@ -164,7 +164,7 @@ export async function POST(req: NextRequest) {
   }
 }
 ```
-> Nota POC: hoy `registrar-resultado` y `enviar-email` **no verifican firma** y validan a mano (sin Zod). Ver "Backlog de hardening".
+> Estado: `registrar-resultado`, `enviar-email` y `webhooks/elevenlabs` **verifican firma** (`lib/webhook-auth.ts`) y validan con **Zod**. La verificación se **exige cuando `WEBHOOK_SHARED_SECRET` está definido**; si no, no bloquea (posture POC) y lo registra. Definir el secreto + añadir la cabecera `x-webhook-secret` en cada tool de ElevenLabs antes de campañas reales.
 
 ### Clientes Supabase — cuál usar
 ```typescript
@@ -265,14 +265,25 @@ Si aparecen más instancias del mismo bug: corregirlas en el mismo PR.
 
 ## Backlog de hardening (estado POC → producción)
 
-El POC prioriza demo funcional. Antes de campañas reales, cerrar:
+**Ya implementado** (auditoría SOPs, jun-2026):
+- ✅ **Auth**: login (email+password, Supabase Auth) + middleware que protege todas las páginas; registro cerrado (invitación). `lib/supabase/{server,client}.ts`, `middleware.ts`, `app/login`, `app/register`, `app/auth/actions.ts`.
+- ✅ **Endpoints de operador** (`campaigns`, `test-call`, `seed`): exigen sesión (`getSessionUser`).
+- ✅ **Webhooks** (`tools/*`, `webhooks/elevenlabs`): verifican firma (`lib/webhook-auth.ts`) si `WEBHOOK_SHARED_SECRET` está definido.
+- ✅ **Zod** en todos los endpoints; `contact_id` validado como uuid; errores genéricos + log server-side.
+- ✅ **`enviar_email`** envía solo al email del contacto (sin override del body).
+- ✅ **secure-io en email**: escape de HTML + allowlist de esquema en la URL (`lib/email.ts`).
+- ✅ **third-party**: timeouts + errores genéricos en ElevenLabs y Resend.
+- ✅ **RLS**: `supabase/policies.sql` (ejecutar en el SQL Editor).
+- ✅ **rate-limit** best-effort en `test-call` (`lib/rate-limit.ts`).
 
-1. **Firmar los webhooks**: `registrar-resultado`, `enviar-email` y `webhooks/elevenlabs` no verifican origen → cualquiera puede escribir en `calls`. Añadir verificación de firma/secreto de ElevenLabs. *(Prioridad 1.)*
-2. **Validación con Zod** en los tools (hoy es manual) + `contact_id` como uuid.
-3. **`enviar_email`**: confirmar que el destino sale del contacto, nunca del body.
-4. **Auth del dashboard**: hoy las pantallas no tienen login → añadir Supabase Auth + RLS antes de exponer datos reales (cargar `/codexia-secure-auth` y `/codexia-secure-authz`).
-5. **RLS** en `campaigns/contacts/calls` cuando se introduzca auth/multi-usuario.
+**Pendiente antes de campañas reales:**
+1. **Activar la firma de webhooks**: definir `WEBHOOK_SHARED_SECRET` y añadir la cabecera `x-webhook-secret` en cada tool de ElevenLabs (sin esto, los webhooks no se verifican — solo se registra el aviso).
+2. **Ejecutar `supabase/policies.sql`** en Supabase (RLS no se aplica solo).
+3. **Rate limiting con Upstash Redis** (el actual es en memoria, por-instancia; no fiable en serverless).
+4. **Auditoría**: tabla de audit log para acciones de operador y resultados.
+5. **Replay protection** en webhooks (tolerancia de timestamp en la firma HMAC).
 6. **Rotar credenciales** compartidas en chat durante el POC.
+7. Crear los usuarios del equipo por invitación en Supabase Auth (no hay alta pública).
 
 ---
 
@@ -297,6 +308,8 @@ EINFORMA_CALLCENTER_NUMBER=+34900...
 # Email (Salida 2)
 RESEND_API_KEY=                     # server-only
 EMAIL_FROM=eInforma <noreply@informa.es>
+# Seguridad de webhooks (firma de tools + post-llamada)
+WEBHOOK_SHARED_SECRET=              # server-only; si se define, los webhooks exigen x-webhook-secret
 ```
 
 ---

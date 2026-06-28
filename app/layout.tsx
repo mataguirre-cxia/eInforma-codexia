@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Geist, JetBrains_Mono } from 'next/font/google';
 import './globals.css';
 import TopNav from './_components/TopNav';
+import { createClient } from '@/lib/supabase/server';
 
 const geist = Geist({
   subsets: ['latin'],
@@ -20,11 +21,14 @@ export const metadata: Metadata = {
   description: 'Panel de seguimiento de llamadas del agente de voz',
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
   return (
     <html lang="es" className={`${geist.variable} ${jetbrains.variable}`}>
       <body>
-        <TopNav />
+        <TopNav userEmail={user?.email ?? null} />
         <main className="pt-14">{children}</main>
       </body>
     </html>

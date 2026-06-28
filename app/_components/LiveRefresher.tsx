@@ -2,13 +2,14 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { supabase } from '@/lib/supabase';
+import { createClient } from '@/lib/supabase/client';
 
 // Suscripción Realtime: cuando cambian las llamadas de la campaña, refresca el dashboard.
 export default function LiveRefresher({ campaignId }: { campaignId: string }) {
   const router = useRouter();
 
   useEffect(() => {
+    const supabase = createClient();
     const channel = supabase
       .channel(`calls-${campaignId}`)
       .on(

@@ -1,41 +1,51 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { supabaseAdmin } from '@/lib/supabase';
-import type { Resultado } from '@/lib/types';
+import { verifyWebhook } from '@/lib/webhook-auth';
 
-// Tool del agente: registra el desenlace de la llamada.
-// El agente la invoca al final de cada salida:
-//   POST { contact_id, resultado, conversation_id?, duration_seconds? }
-const VALID: Resultado[] = ['conversion', 'email', 'transferido', 'no_interesado', 'sin_contacto'];
+// Tool del agente: registra el desenlace de la llamada. Llamado por ElevenLabs.
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const Body = z
+  .object({
+    contact_id: z.string().regex(UUID),
+    resultado: z.enum(['conversion', 'email', 'transferido', 'no_interesado', 'sin_contacto']),
+    conversation_id: z.string().max(200).optional(),
+    duration_seconds: z.number().int().nonnegative().max(36000).optional(),
+  })
+  .strict();
 
 export async function POST(req: NextRequest) {
+  const raw = await req.text();
+  if (!verifyWebhook(req, raw).ok) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+
+  let json: unknown;
   try {
-    const body = await req.json().catch(() => ({}));
-    const contactId: string | undefined = body?.contact_id;
-    const resultado = body?.resultado as Resultado | undefined;
+    json = JSON.parse(raw || '{}');
+  } catch {
+    return NextResponse.json({ error: 'invalid_input' }, { status: 400 });
+  }
+  const parsed = Body.safeParse(json);
+  if (!parsed.success) return NextResponse.json({ error: 'invalid_input' }, { status: 400 });
+  const { contact_id, resultado, conversation_id, duration_seconds } = parsed.data;
 
-    if (!contactId) return NextResponse.json({ error: 'falta contact_id' }, { status: 400 });
-    if (!resultado || !VALID.includes(resultado)) {
-      return NextResponse.json({ error: `resultado inválido (${VALID.join(', ')})` }, { status: 400 });
-    }
-
-    const contactado = resultado !== 'sin_contacto';
+  try {
     const sb = supabaseAdmin();
     const { error } = await sb
       .from('calls')
       .update({
         resultado,
-        contactado,
+        contactado: resultado !== 'sin_contacto',
         status: 'completed',
-        elevenlabs_conversation_id: body?.conversation_id ?? null,
-        duration_seconds: body?.duration_seconds ?? null,
+        elevenlabs_conversation_id: conversation_id ?? null,
+        duration_seconds: duration_seconds ?? null,
         ended_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
-      .eq('contact_id', contactId);
-
+      .eq('contact_id', contact_id);
     if (error) throw new Error(error.message);
-    return NextResponse.json({ ok: true, resultado });
+    return NextResponse.json({ ok: true });
   } catch (e) {
-    return NextResponse.json({ error: e instanceof Error ? e.message : 'Error' }, { status: 500 });
+    console.error('[api/tools/registrar-resultado]', e instanceof Error ? e.message : e);
+    return NextResponse.json({ error: 'internal_error' }, { status: 500 });
   }
 }

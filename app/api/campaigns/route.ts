@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { supabaseAdmin } from '@/lib/supabase';
 import { submitBatchCall, type BatchRecipient } from '@/lib/elevenlabs';
+import { getSessionUser } from '@/lib/auth-guard';
 
 // Normaliza una fila del CSV a nuestro esquema, tolerando nombres de columna distintos.
 function pick(row: Record<string, unknown>, keys: string[]): string | null {
@@ -27,8 +29,16 @@ function normalizeContact(row: Record<string, unknown>) {
   };
 }
 
-// GET /api/campaigns → lista de campañas
+const PostBody = z
+  .object({
+    name: z.string().trim().min(1).max(200).optional(),
+    contacts: z.array(z.record(z.string(), z.unknown())).min(1).max(5000),
+  })
+  .strict();
+
+// GET /api/campaigns → lista de campañas (solo operador autenticado)
 export async function GET() {
+  if (!(await getSessionUser())) return NextResponse.json({ error: 'unauthenticated' }, { status: 401 });
   try {
     const sb = supabaseAdmin();
     const { data, error } = await sb
@@ -38,20 +48,20 @@ export async function GET() {
     if (error) throw new Error(error.message);
     return NextResponse.json({ campaigns: data || [] });
   } catch (e) {
-    return NextResponse.json({ error: e instanceof Error ? e.message : 'Error' }, { status: 500 });
+    console.error('[api/campaigns] GET', e instanceof Error ? e.message : e);
+    return NextResponse.json({ error: 'internal_error' }, { status: 500 });
   }
 }
 
-// POST /api/campaigns
-// Body: { name, contacts: [...filas del CSV...] }
-// 1) crea campaña + contactos + llamadas (queued)  2) dispara batch calling en ElevenLabs
+// POST /api/campaigns → crea campaña + contactos + llamadas y dispara batch calling.
 export async function POST(req: NextRequest) {
+  if (!(await getSessionUser())) return NextResponse.json({ error: 'unauthenticated' }, { status: 401 });
   try {
-    const body = await req.json();
-    const name: string = body?.name?.trim() || 'POC eInforma';
-    const rawContacts: Array<Record<string, unknown>> = Array.isArray(body?.contacts) ? body.contacts : [];
+    const parsed = PostBody.safeParse(await req.json().catch(() => null));
+    if (!parsed.success) return NextResponse.json({ error: 'invalid_input' }, { status: 400 });
 
-    const contacts = rawContacts.map(normalizeContact).filter((c) => c.telefono);
+    const name = parsed.data.name?.trim() || 'POC eInforma';
+    const contacts = parsed.data.contacts.map(normalizeContact).filter((c) => c.telefono);
     if (contacts.length === 0) {
       return NextResponse.json({ error: 'No hay contactos con teléfono válido' }, { status: 400 });
     }
@@ -63,7 +73,7 @@ export async function POST(req: NextRequest) {
       .insert({ name, status: 'running', total_contacts: contacts.length })
       .select('id')
       .single();
-    if (cErr || !campaign) throw new Error(cErr?.message || 'No se pudo crear la campaña');
+    if (cErr || !campaign) throw new Error(cErr?.message || 'campaign insert failed');
 
     const rows = contacts.map((c) => ({
       campaign_id: campaign.id,
@@ -77,13 +87,12 @@ export async function POST(req: NextRequest) {
       precio_oferta: c.precio_oferta,
     }));
     const { data: inserted, error: iErr } = await sb.from('contacts').insert(rows).select('*');
-    if (iErr || !inserted) throw new Error(iErr?.message || 'No se pudieron insertar contactos');
+    if (iErr || !inserted) throw new Error(iErr?.message || 'contacts insert failed');
 
     await sb.from('calls').insert(
       inserted.map((ct) => ({ campaign_id: campaign.id, contact_id: ct.id, status: 'queued' })),
     );
 
-    // Disparar batch calling (solo si ElevenLabs está configurado)
     let batchId: string | null = null;
     let batchNote: string | undefined;
     if (process.env.ELEVENLABS_API_KEY && process.env.ELEVENLABS_AGENT_ID) {
@@ -103,14 +112,16 @@ export async function POST(req: NextRequest) {
         const batch = await submitBatchCall({ callName: name, recipients });
         batchId = batch.id;
       } catch (e) {
-        batchNote = `Contactos cargados, pero el batch falló: ${e instanceof Error ? e.message : 'error'}`;
+        console.error('[api/campaigns] batch', e instanceof Error ? e.message : e);
+        batchNote = 'Contactos cargados, pero el lanzamiento de llamadas falló.';
       }
     } else {
-      batchNote = 'ElevenLabs no configurado: contactos cargados, batch no disparado.';
+      batchNote = 'ElevenLabs no configurado: contactos cargados, llamadas no lanzadas.';
     }
 
     return NextResponse.json({ ok: true, campaignId: campaign.id, contacts: inserted.length, batchId, note: batchNote });
   } catch (e) {
-    return NextResponse.json({ error: e instanceof Error ? e.message : 'Error' }, { status: 500 });
+    console.error('[api/campaigns] POST', e instanceof Error ? e.message : e);
+    return NextResponse.json({ error: 'internal_error' }, { status: 500 });
   }
 }

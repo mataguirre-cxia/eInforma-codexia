@@ -1,49 +1,56 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { supabaseAdmin } from '@/lib/supabase';
 import { enviarEmailOferta } from '@/lib/email';
+import { verifyWebhook } from '@/lib/webhook-auth';
 
 // Tool del agente (Salida 2): envía el enlace de la oferta por email y registra consentimiento.
-//   POST { contact_id }  (los datos de email/url/precio se leen del contacto)
-export async function POST(req: NextRequest) {
-  try {
-    const body = await req.json().catch(() => ({}));
-    const contactId: string | undefined = body?.contact_id;
-    if (!contactId) return NextResponse.json({ error: 'falta contact_id' }, { status: 400 });
+// El destino SIEMPRE es el email almacenado del contacto — nunca un email del body
+// (evita usar nuestro remitente para enviar a direcciones arbitrarias).
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const Body = z.object({ contact_id: z.string().regex(UUID) }).strict();
 
+export async function POST(req: NextRequest) {
+  const raw = await req.text();
+  if (!verifyWebhook(req, raw).ok) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+
+  let json: unknown;
+  try {
+    json = JSON.parse(raw || '{}');
+  } catch {
+    return NextResponse.json({ error: 'invalid_input' }, { status: 400 });
+  }
+  const parsed = Body.safeParse(json);
+  if (!parsed.success) return NextResponse.json({ error: 'invalid_input' }, { status: 400 });
+  const { contact_id } = parsed.data;
+
+  try {
     const sb = supabaseAdmin();
     const { data: contact, error } = await sb
       .from('contacts')
       .select('nombre, email, oferta_url, precio_oferta')
-      .eq('id', contactId)
+      .eq('id', contact_id)
       .single();
-    if (error || !contact) return NextResponse.json({ error: 'contacto no encontrado' }, { status: 404 });
+    if (error || !contact) return NextResponse.json({ error: 'not_found' }, { status: 404 });
 
-    // Permitir override desde el body (ej. si el usuario dio otro email en la llamada)
-    const to = body?.email || contact.email;
-    const ofertaUrl = body?.oferta_url || contact.oferta_url;
-    if (!to) return NextResponse.json({ error: 'sin email' }, { status: 400 });
-    if (!ofertaUrl) return NextResponse.json({ error: 'sin oferta_url' }, { status: 400 });
+    if (!contact.email) return NextResponse.json({ error: 'sin_email' }, { status: 422 });
+    if (!contact.oferta_url) return NextResponse.json({ error: 'sin_oferta_url' }, { status: 422 });
 
     const result = await enviarEmailOferta({
-      to,
+      to: contact.email,
       nombre: contact.nombre || undefined,
-      ofertaUrl,
+      ofertaUrl: contact.oferta_url,
       precioOferta: contact.precio_oferta || undefined,
     });
 
-    // Registra el resultado como "email" (consentimiento + envío)
     await sb
       .from('calls')
-      .update({
-        resultado: 'email',
-        contactado: true,
-        status: 'completed',
-        updated_at: new Date().toISOString(),
-      })
-      .eq('contact_id', contactId);
+      .update({ resultado: 'email', contactado: true, status: 'completed', updated_at: new Date().toISOString() })
+      .eq('contact_id', contact_id);
 
-    return NextResponse.json({ ok: true, email_sent: result.sent, reason: result.reason });
+    return NextResponse.json({ ok: true, email_sent: result.sent });
   } catch (e) {
-    return NextResponse.json({ error: e instanceof Error ? e.message : 'Error' }, { status: 500 });
+    console.error('[api/tools/enviar-email]', e instanceof Error ? e.message : e);
+    return NextResponse.json({ error: 'internal_error' }, { status: 500 });
   }
 }
