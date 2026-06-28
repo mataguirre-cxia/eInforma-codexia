@@ -1,6 +1,6 @@
 import { supabaseAdmin } from './supabase';
-import { DEMO_DASHBOARD } from './demo-data';
-import type { DashboardData, Campaign, CampaignMetrics, CallRow } from './types';
+import { DEMO_DASHBOARD, DEMO_CALLS } from './demo-data';
+import type { DashboardData, Campaign, CampaignMetrics, CallRow, CallDetail } from './types';
 
 function isSupabaseConfigured(): boolean {
   return Boolean(
@@ -80,5 +80,36 @@ export async function getDashboardData(campaignId?: string): Promise<DashboardDa
   } catch {
     // Cualquier error de conexión → demo, para no romper la pantalla
     return DEMO_DASHBOARD;
+  }
+}
+
+/** Llamadas con grabación + transcripción. Fallback a demo si no hay Supabase/datos. */
+export async function getCallsDetailed(): Promise<{ calls: CallDetail[]; isDemo: boolean }> {
+  if (!isSupabaseConfigured()) return { calls: DEMO_CALLS, isDemo: true };
+  try {
+    const sb = supabaseAdmin();
+    const { data } = await sb
+      .from('calls')
+      .select('id, resultado, duration_seconds, recording_url, transcript, updated_at, contacts(nombre, ultimo_informe)')
+      .order('updated_at', { ascending: false })
+      .limit(30);
+
+    const calls: CallDetail[] = (data || []).map((c: Record<string, unknown>) => {
+      const ct = (c.contacts as { nombre?: string; ultimo_informe?: string } | null) || null;
+      return {
+        id: String(c.id),
+        nombre: ct?.nombre || '—',
+        ultimo_informe: ct?.ultimo_informe || null,
+        resultado: (c.resultado as CallDetail['resultado']) ?? null,
+        duration_seconds: (c.duration_seconds as number) ?? null,
+        recording_url: (c.recording_url as string) ?? null,
+        transcript: (c.transcript as string) ?? null,
+      };
+    });
+
+    if (calls.length === 0) return { calls: DEMO_CALLS, isDemo: true };
+    return { calls, isDemo: false };
+  } catch {
+    return { calls: DEMO_CALLS, isDemo: true };
   }
 }

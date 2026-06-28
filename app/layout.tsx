@@ -16,7 +16,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <span className="font-semibold text-white">eInforma · Voz</span>
             <div className="flex gap-4 text-sm">
               <Link href="/" className="text-zinc-300 hover:text-white">Dashboard</Link>
+              <Link href="/llamadas" className="text-zinc-300 hover:text-white">Llamadas</Link>
               <Link href="/cargar" className="text-zinc-300 hover:text-white">Cargar contactos</Link>
+              <Link href="/probar" className="text-zinc-300 hover:text-white">Probar agente</Link>
             </div>
           </div>
         </nav>

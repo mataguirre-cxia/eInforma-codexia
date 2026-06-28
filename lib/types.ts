@@ -69,6 +69,17 @@ export interface CallRow {
   duration_seconds: number | null;
 }
 
+/** Llamada con detalle (grabación + transcripción) para la vista de llamadas. */
+export interface CallDetail {
+  id: string;
+  nombre: string;
+  ultimo_informe: string | null;
+  resultado: Resultado | null;
+  duration_seconds: number | null;
+  recording_url: string | null;
+  transcript: string | null;
+}
+
 /** Datos que necesita el dashboard. */
 export interface DashboardData {
   campaign: { id: string; name: string } | null;
