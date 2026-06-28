@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { placeOutboundCall } from '@/lib/elevenlabs';
 import { getSessionUser } from '@/lib/auth-guard';
 import { rateLimit, clientIp } from '@/lib/rate-limit';
+import { logAudit } from '@/lib/audit';
 
 // POST /api/test-call → lanza UNA llamada de prueba del agente (solo operador).
 const Body = z
@@ -17,10 +18,11 @@ const Body = z
   .strict();
 
 export async function POST(req: NextRequest) {
-  if (!(await getSessionUser())) return NextResponse.json({ error: 'unauthenticated' }, { status: 401 });
+  const user = await getSessionUser();
+  if (!user) return NextResponse.json({ error: 'unauthenticated' }, { status: 401 });
 
-  // Las llamadas salientes cuestan dinero → límite estricto por IP.
-  if (!rateLimit(`test-call:${clientIp(req)}`, 5, 5 * 60 * 1000)) {
+  // Las llamadas salientes cuestan dinero → límite estricto por IP (5 / 5 min).
+  if (!(await rateLimit(`test-call:${clientIp(req)}`, 5, 300))) {
     return NextResponse.json({ error: 'too_many_requests' }, { status: 429 });
   }
 
@@ -44,6 +46,7 @@ export async function POST(req: NextRequest) {
       },
     });
 
+    await logAudit({ action: 'test_call_placed', actorId: user.id, actorEmail: user.email, ip: clientIp(req) });
     return NextResponse.json({ ok: true });
   } catch (e) {
     console.error('[api/test-call] POST', e instanceof Error ? e.message : e);

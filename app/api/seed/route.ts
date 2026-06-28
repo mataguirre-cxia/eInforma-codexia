@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { getSessionUser } from '@/lib/auth-guard';
+import { logAudit } from '@/lib/audit';
 import type { Resultado } from '@/lib/types';
 
 // POST /api/seed → crea una campaña demo con datos realistas (solo operador autenticado).
@@ -18,7 +19,8 @@ const DEMO = [
 ];
 
 export async function POST() {
-  if (!(await getSessionUser())) return NextResponse.json({ error: 'unauthenticated' }, { status: 401 });
+  const user = await getSessionUser();
+  if (!user) return NextResponse.json({ error: 'unauthenticated' }, { status: 401 });
   try {
     const sb = supabaseAdmin();
 
@@ -57,6 +59,7 @@ export async function POST() {
       });
     }
 
+    await logAudit({ action: 'seed_run', actorId: user.id, actorEmail: user.email, meta: { campaign_id: campaign.id } });
     return NextResponse.json({ ok: true, campaignId: campaign.id, contactos: DEMO.length });
   } catch (e) {
     console.error('[api/seed]', e instanceof Error ? e.message : e);

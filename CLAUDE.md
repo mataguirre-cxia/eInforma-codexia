@@ -274,16 +274,16 @@ Si aparecen más instancias del mismo bug: corregirlas en el mismo PR.
 - ✅ **secure-io en email**: escape de HTML + allowlist de esquema en la URL (`lib/email.ts`).
 - ✅ **third-party**: timeouts + errores genéricos en ElevenLabs y Resend.
 - ✅ **RLS**: `supabase/policies.sql` (ejecutar en el SQL Editor).
-- ✅ **rate-limit** best-effort en `test-call` (`lib/rate-limit.ts`).
+- ✅ **rate-limit** en `login` (5/15 min) y `test-call` (5/5 min): Upstash Redis si está configurado, si no en memoria (`lib/rate-limit.ts`).
+- ✅ **audit log**: `lib/audit.ts` + `supabase/audit.sql`; registra login (éxito/fallo), logout, campaign_created, test_call_placed, seed_run.
 
-**Pendiente antes de campañas reales:**
+**Pendiente antes de campañas reales (acciones de configuración, no de código):**
 1. **Activar la firma de webhooks**: definir `WEBHOOK_SHARED_SECRET` y añadir la cabecera `x-webhook-secret` en cada tool de ElevenLabs (sin esto, los webhooks no se verifican — solo se registra el aviso).
-2. **Ejecutar `supabase/policies.sql`** en Supabase (RLS no se aplica solo).
-3. **Rate limiting con Upstash Redis** (el actual es en memoria, por-instancia; no fiable en serverless).
-4. **Auditoría**: tabla de audit log para acciones de operador y resultados.
-5. **Replay protection** en webhooks (tolerancia de timestamp en la firma HMAC).
-6. **Rotar credenciales** compartidas en chat durante el POC.
-7. Crear los usuarios del equipo por invitación en Supabase Auth (no hay alta pública).
+2. **Ejecutar `supabase/policies.sql` y `supabase/audit.sql`** en el SQL Editor (RLS y tabla de auditoría no se aplican solos).
+3. **Provisionar Upstash** y definir `UPSTASH_REDIS_REST_URL/TOKEN` (sin esto el rate-limit es en memoria, no fiable en serverless).
+4. **Crear los usuarios** del equipo por invitación en Supabase Auth (no hay alta pública).
+5. **Rotar credenciales** compartidas en chat durante el POC.
+6. *(Opcional)* **Replay protection** en webhooks (tolerancia de timestamp en la firma HMAC).
 
 ---
 

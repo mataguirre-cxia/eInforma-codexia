@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { supabaseAdmin } from '@/lib/supabase';
 import { submitBatchCall, type BatchRecipient } from '@/lib/elevenlabs';
 import { getSessionUser } from '@/lib/auth-guard';
+import { logAudit } from '@/lib/audit';
 
 // Normaliza una fila del CSV a nuestro esquema, tolerando nombres de columna distintos.
 function pick(row: Record<string, unknown>, keys: string[]): string | null {
@@ -55,7 +56,8 @@ export async function GET() {
 
 // POST /api/campaigns → crea campaña + contactos + llamadas y dispara batch calling.
 export async function POST(req: NextRequest) {
-  if (!(await getSessionUser())) return NextResponse.json({ error: 'unauthenticated' }, { status: 401 });
+  const user = await getSessionUser();
+  if (!user) return NextResponse.json({ error: 'unauthenticated' }, { status: 401 });
   try {
     const parsed = PostBody.safeParse(await req.json().catch(() => null));
     if (!parsed.success) return NextResponse.json({ error: 'invalid_input' }, { status: 400 });
@@ -119,6 +121,12 @@ export async function POST(req: NextRequest) {
       batchNote = 'ElevenLabs no configurado: contactos cargados, llamadas no lanzadas.';
     }
 
+    await logAudit({
+      action: 'campaign_created',
+      actorId: user.id,
+      actorEmail: user.email,
+      meta: { campaign_id: campaign.id, contacts: inserted.length, batch: Boolean(batchId) },
+    });
     return NextResponse.json({ ok: true, campaignId: campaign.id, contacts: inserted.length, batchId, note: batchNote });
   } catch (e) {
     console.error('[api/campaigns] POST', e instanceof Error ? e.message : e);
