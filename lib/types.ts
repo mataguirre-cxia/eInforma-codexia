@@ -1,11 +1,17 @@
 // Tipos compartidos del proyecto eInforma
 
+// Nombre de la campaña aislada donde caen las llamadas de "Probar agente".
+// Se excluye del dashboard (superficie de cara al cliente) pero sí se ve en
+// /llamadas y /incidencias para poder verificar las pruebas.
+export const TEST_CAMPAIGN_NAME = 'Pruebas — Probar agente';
+
 export type CampaignStatus = 'draft' | 'running' | 'completed';
 
 export type Resultado =
   | 'conversion'
   | 'email'
   | 'transferido'
+  | 'callback'
   | 'no_interesado'
   | 'sin_contacto';
 
@@ -92,6 +98,16 @@ export const RESULTADO_LABEL: Record<Resultado, string> = {
   conversion: 'Conversión',
   email: 'Aceptó email',
   transferido: 'Transferido',
+  callback: 'Devolver llamada',
   no_interesado: 'No interesado',
   sin_contacto: 'Sin contacto',
 };
+
+/** Pregunta sin respuesta preparada, registrada por el agente para pulir el guión. */
+export interface Incidencia {
+  id: string;
+  nombre: string;
+  ultimo_informe: string | null;
+  pregunta: string;
+  created_at: string | null;
+}

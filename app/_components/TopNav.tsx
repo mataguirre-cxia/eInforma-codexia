@@ -7,6 +7,7 @@ import { logout } from '@/app/auth/actions';
 const LINKS = [
   { href: '/', label: 'Dashboard' },
   { href: '/llamadas', label: 'Llamadas' },
+  { href: '/incidencias', label: 'Incidencias' },
   { href: '/cargar', label: 'Cargar contactos' },
   { href: '/probar', label: 'Probar agente' },
 ];

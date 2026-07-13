@@ -25,6 +25,14 @@ drop policy if exists "operadores acceso total" on public.calls;
 create policy "operadores acceso total" on public.calls
   for all to authenticated using (true) with check (true);
 
+-- incidencias: las escribe el agente vía service-role (bypasea RLS); los operadores
+-- solo las LEEN. Sin policy de insert/update/delete → nadie con la anon key puede
+-- crearlas ni alterarlas (patrón audit_log).
+alter table public.incidencias enable row level security;
+drop policy if exists "operadores leen incidencias" on public.incidencias;
+create policy "operadores leen incidencias" on public.incidencias
+  for select to authenticated using (true);
+
 -- Nota: el dashboard lee con service-role en el servidor; el cliente de navegador
 -- (Realtime de /llamadas y dashboard) usa la sesión autenticada, cubierta por las
 -- policies de arriba. `anon` no tiene policy → sin acceso vía la anon key.

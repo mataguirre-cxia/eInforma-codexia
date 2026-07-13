@@ -7,8 +7,10 @@ export default function ProbarAgente() {
     toNumber: '',
     nombre: 'Sebastián',
     ultimo_informe: 'Telefónica',
+    num_informes: '3',
     precio_oferta: '19 €',
     oferta_url: 'informa.es/oferta',
+    email: '',
   });
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<{ ok?: boolean; error?: string } | null>(null);
@@ -59,8 +61,12 @@ export default function ProbarAgente() {
           {field('Último informe', 'ultimo_informe')}
         </div>
         <div className="grid grid-cols-2 gap-3">
+          {field('Nº de informes', 'num_informes')}
           {field('Precio oferta', 'precio_oferta')}
+        </div>
+        <div className="grid grid-cols-2 gap-3">
           {field('URL oferta', 'oferta_url')}
+          {field('Email (para probar Salida 2)', 'email', 'tucorreo@ejemplo.com')}
         </div>
 
         <button onClick={llamar} disabled={loading || !form.toNumber.trim()} className="btn btn-primary">

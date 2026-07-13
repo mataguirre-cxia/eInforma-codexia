@@ -1,4 +1,4 @@
-import type { DashboardData, CallDetail } from './types';
+import type { DashboardData, CallDetail, Incidencia } from './types';
 
 // Llamadas con transcripción de ejemplo (para la vista /llamadas en modo demo).
 export const DEMO_CALLS: CallDetail[] = [
@@ -44,6 +44,31 @@ export const DEMO_CALLS: CallDetail[] = [
   },
 ];
 
+
+// Incidencias de ejemplo (preguntas sin respuesta preparada) para la vista /incidencias en modo demo.
+export const DEMO_INCIDENCIAS: Incidencia[] = [
+  {
+    id: 'i1',
+    nombre: 'Marta V.',
+    ultimo_informe: 'Naturgy',
+    pregunta: '¿El informe completo incluye el histórico de administradores de los últimos 10 años?',
+    created_at: '2026-07-12T10:24:00.000Z',
+  },
+  {
+    id: 'i2',
+    nombre: 'Diego S.',
+    ultimo_informe: 'BBVA',
+    pregunta: '¿Puedo pagar con transferencia en lugar de tarjeta y me hacéis factura con mi CIF?',
+    created_at: '2026-07-12T09:58:00.000Z',
+  },
+  {
+    id: 'i3',
+    nombre: 'Lucía F.',
+    ultimo_informe: 'Santander',
+    pregunta: '¿Cuántas veces puedo descargar el informe una vez lo compro?',
+    created_at: '2026-07-11T17:41:00.000Z',
+  },
+];
 
 // Datos de ejemplo para el dashboard cuando Supabase no está configurado o no hay datos.
 // Sirve para la demo del miércoles sin depender de cuentas externas.

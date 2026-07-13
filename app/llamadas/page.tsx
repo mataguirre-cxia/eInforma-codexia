@@ -7,6 +7,7 @@ const PILL: Record<Resultado, string> = {
   conversion: 'text-ok bg-ok-wash',
   email: 'text-info bg-info-wash',
   transferido: 'text-warn bg-warn-wash',
+  callback: 'text-warn bg-warn-wash',
   no_interesado: 'text-neutral bg-neutral-wash',
   sin_contacto: 'text-neutral bg-neutral-wash',
 };

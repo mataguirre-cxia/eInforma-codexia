@@ -36,7 +36,7 @@ create table if not exists calls (
   contact_id        uuid not null references contacts(id) on delete cascade,
   status            text not null default 'queued', -- queued | in_progress | completed | failed | no_answer
   contactado        boolean default false,          -- métrica: contactado sí/no
-  resultado         text,                           -- conversion | email | transferido | no_interesado | sin_contacto
+  resultado         text,                           -- conversion | email | transferido | callback | no_interesado | sin_contacto
   duration_seconds  int,
   elevenlabs_conversation_id text,                  -- id de la conversación en ElevenLabs
   transcript        text,
@@ -50,6 +50,20 @@ create table if not exists calls (
 create index if not exists idx_calls_campaign on calls(campaign_id);
 create index if not exists idx_calls_contact on calls(contact_id);
 create index if not exists idx_calls_resultado on calls(resultado);
+
+-- Incidencias: preguntas del usuario sin respuesta preparada. El agente las
+-- registra durante la llamada (tool registrar_incidencia) para ir puliendo el
+-- guión durante el piloto. `pregunta` puede contener habla del usuario (PII):
+-- se muestra escapada en el panel y nunca se loguea.
+create table if not exists incidencias (
+  id           uuid primary key default gen_random_uuid(),
+  contact_id   uuid references contacts(id) on delete cascade,
+  conversation_id text,                              -- id de la conversación en ElevenLabs
+  pregunta     text not null,
+  created_at   timestamptz default now()
+);
+create index if not exists idx_incidencias_created on incidencias(created_at desc);
+create index if not exists idx_incidencias_contact on incidencias(contact_id);
 
 -- Vista de métricas por campaña (para el dashboard)
 create or replace view campaign_metrics as

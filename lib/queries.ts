@@ -1,6 +1,7 @@
 import { supabaseAdmin } from './supabase';
-import { DEMO_DASHBOARD, DEMO_CALLS } from './demo-data';
-import type { DashboardData, Campaign, CampaignMetrics, CallRow, CallDetail } from './types';
+import { DEMO_DASHBOARD, DEMO_CALLS, DEMO_INCIDENCIAS } from './demo-data';
+import { TEST_CAMPAIGN_NAME } from './types';
+import type { DashboardData, Campaign, CampaignMetrics, CallRow, CallDetail, Incidencia } from './types';
 
 function isSupabaseConfigured(): boolean {
   return Boolean(
@@ -37,9 +38,11 @@ export async function getDashboardData(campaignId?: string): Promise<DashboardDa
       const { data } = await sb.from('campaigns').select('id, name').eq('id', campaignId).single();
       campaign = data;
     } else {
+      // Campaña más reciente, excluyendo la de pruebas (no debe encabezar el dashboard).
       const { data } = await sb
         .from('campaigns')
         .select('id, name')
+        .neq('name', TEST_CAMPAIGN_NAME)
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -111,5 +114,34 @@ export async function getCallsDetailed(): Promise<{ calls: CallDetail[]; isDemo:
     return { calls, isDemo: false };
   } catch {
     return { calls: DEMO_CALLS, isDemo: true };
+  }
+}
+
+/** Incidencias (preguntas sin respuesta) para revisar durante el piloto. Fallback a demo. */
+export async function getIncidencias(): Promise<{ incidencias: Incidencia[]; isDemo: boolean }> {
+  if (!isSupabaseConfigured()) return { incidencias: DEMO_INCIDENCIAS, isDemo: true };
+  try {
+    const sb = supabaseAdmin();
+    const { data } = await sb
+      .from('incidencias')
+      .select('id, pregunta, created_at, contacts(nombre, ultimo_informe)')
+      .order('created_at', { ascending: false })
+      .limit(50);
+
+    const incidencias: Incidencia[] = (data || []).map((r: Record<string, unknown>) => {
+      const ct = (r.contacts as { nombre?: string; ultimo_informe?: string } | null) || null;
+      return {
+        id: String(r.id),
+        nombre: ct?.nombre || '—',
+        ultimo_informe: ct?.ultimo_informe || null,
+        pregunta: (r.pregunta as string) ?? '',
+        created_at: (r.created_at as string) ?? null,
+      };
+    });
+
+    if (incidencias.length === 0) return { incidencias: DEMO_INCIDENCIAS, isDemo: true };
+    return { incidencias, isDemo: false };
+  } catch {
+    return { incidencias: DEMO_INCIDENCIAS, isDemo: true };
   }
 }
